@@ -1,30 +1,44 @@
 #!/usr/bin/python3
+"""Log Parsing"""
+
 import re
+import sys
 
-input_format = re.compile(r'\d+\.\d+\.\d+\.\d+ - \[.+\] "GET /projects/260 HTTP/1.1" (\d+) (\d+)')
 
-count = 0
-total_file_size = 0
-status_code_count = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
-while True:
+def stat_print(log: dict) -> None:
+    """prints stats"""
+    print("File size: {}".format(log["file_size"]))
+    for code in sorted(log["code_frequency"]):
+        if log["code_frequency"][code]:
+            print("{}: {}".format(code, log["code_frequency"][code]))
+
+
+if __name__ == "__main__":
+    regex = re.compile(
+    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d+\] "GET /projects/260 HTTP/1.1" (.{3}) (\d+)')  # nopep8
+
+    line_count = 0
+    log = {}
+    log["file_size"] = 0
+    log["code_frequency"] = {
+        str(code): 0 for code in [
+            200, 301, 400, 401, 403, 404, 405, 500]}
+
     try:
-        line = input()
-        match = input_format.match(line)
-        if match:
-            cur_status_code, cur_file_size = match.groups()
-            cur_status_code, cur_file_size = int(cur_status_code), int(cur_file_size)
-            if cur_status_code in status_code_count.keys():
-                status_code_count[cur_status_code] += 1
-            total_file_size += cur_file_size
-        else:
-            continue
-        count += 1
-        if count == 10:
-            print(f"File size: {total_file_size}")
-            for k, v in status_code_count.items():
-                print(f"{k}: {v}")
-            count = 0
-    except KeyboardInterrupt:
-        print(f"File size: {total_file_size}")
-        for k, v in status_code_count.items():
-            print(f"{k}: {v}")
+        for line in sys.stdin:
+            line = line.strip()
+            match = regex.fullmatch(line)
+            if (match):
+                line_count += 1
+                code = match.group(1)
+                file_size = int(match.group(2))
+
+                log["file_size"] += file_size
+
+                if (code.isdecimal()):
+                    log["code_frequency"][code] += 1
+
+                if (line_count % 10 == 0):
+                    stat_print(log)
+    finally:
+        stat_print(log)
